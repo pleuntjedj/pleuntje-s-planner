@@ -1,0 +1,2097 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Taken, Boodschappen & Weekmenu</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans voor een warme, rustige lifestyle uitstraling -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sand: {
+              50: '#FDFCFB',
+              100: '#FAF7F4',
+              200: '#F3EDE7',
+              300: '#E7DDD3',
+              400: '#BDB1A5',
+              600: '#756A60',
+              700: '#524B43',
+              800: '#38322C',
+              900: '#231F1B'
+            },
+            clay: {
+              50: '#FDF9F7',
+              100: '#F9ECE7',
+              200: '#F1D6CC',
+              500: '#BA7263',
+              600: '#A76152',
+              700: '#945345',
+              800: '#754035'
+            },
+            sage: {
+              50: '#F7FAF8',
+              100: '#E9F2EC',
+              200: '#D2E3D8',
+              500: '#69856C',
+              600: '#557058',
+              700: '#435845'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      background-color: #FAF7F4;
+      color: #38322C;
+      -webkit-font-smoothing: antialiased;
+    }
+    input[type="checkbox"] {
+      accent-color: #A76152;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans pb-16">
+
+  <!-- ========================================== -->
+  <!-- HEADER & STATUSBALK                        -->
+  <!-- ========================================== -->
+  <header class="sticky top-0 z-40 bg-[#FAF7F4]/95 backdrop-blur-md border-b border-[#EAE3DA]">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-2xl bg-clay-100 border border-clay-200/70 flex items-center justify-center text-clay-700 shadow-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-sm sm:text-base font-semibold tracking-tight text-sand-900 leading-tight">
+            Taken & Boodschappen
+          </h1>
+          <div class="flex items-center space-x-1.5 text-xs text-sand-600">
+            <span class="text-sand-400">Koppelcode:</span>
+            <button onclick="window.openCodeModal()" class="font-mono text-[11px] text-clay-700 bg-clay-100/70 hover:bg-clay-100 px-2 py-0.5 rounded-lg border border-clay-200/80 flex items-center space-x-1 transition-all" title="Synchronisatie & Supabase beheren">
+              <span id="current-code-label">pleuntjedejong</span>
+              <svg class="w-2.5 h-2.5 text-clay-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sync Status & Handmatige Vernieuwknop -->
+      <div class="flex items-center space-x-2">
+        <button onclick="window.openCodeModal()" id="sync-status-badge" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-sage-50 text-sage-700 border border-sage-200 transition-all hover:bg-sage-100" title="Klik om database status te bekijken">
+          <span id="sync-indicator-dot" class="w-2 h-2 rounded-full bg-sage-500 animate-pulse"></span>
+          <span id="sync-status-text" class="tracking-tight text-[11px] sm:text-xs">Live verbonden</span>
+        </button>
+
+        <button onclick="window.manualSync()" class="p-2 text-sand-700 hover:text-clay-700 active:scale-95 bg-white border border-[#EAE3DA] rounded-xl shadow-xs transition-all" title="Nu handmatig vernieuwen">
+          <svg id="sync-spinner-icon" class="w-4 h-4 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Hoofd Navigatietabbladen -->
+    <nav class="max-w-4xl mx-auto px-2 flex space-x-1 overflow-x-auto hide-scrollbar border-t border-[#EAE3DA]/60">
+      <button onclick="window.setMainTab('dayplanner')" id="tab-btn-dayplanner" class="flex-1 min-w-[95px] py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 border-b-2 border-clay-600 text-clay-700 transition-all">
+        <span>📅</span><span>Dag & Menu</span>
+      </button>
+      <button onclick="window.setMainTab('weekmenu')" id="tab-btn-weekmenu" class="flex-1 min-w-[95px] py-2.5 text-xs sm:text-sm font-medium flex items-center justify-center space-x-1 border-b-2 border-transparent text-sand-400 hover:text-sand-700 transition-all">
+        <span>🍲</span><span>Weekmenu's</span>
+      </button>
+      <button onclick="window.setMainTab('tasks')" id="tab-btn-tasks" class="flex-1 min-w-[75px] py-2.5 text-xs sm:text-sm font-medium flex items-center justify-center space-x-1 border-b-2 border-transparent text-sand-400 hover:text-sand-700 transition-all">
+        <span>✅</span><span>Taken</span>
+      </button>
+      <button onclick="window.setMainTab('groceries')" id="tab-btn-groceries" class="flex-1 min-w-[95px] py-2.5 text-xs sm:text-sm font-medium flex items-center justify-center space-x-1 border-b-2 border-transparent text-sand-400 hover:text-sand-700 transition-all">
+        <span>🧺</span><span>Boodschappen</span>
+      </button>
+      <button onclick="window.setMainTab('recipes')" id="tab-btn-recipes" class="flex-1 min-w-[85px] py-2.5 text-xs sm:text-sm font-medium flex items-center justify-center space-x-1 border-b-2 border-transparent text-sand-400 hover:text-sand-700 transition-all">
+        <span>🍽️</span><span>Recepten</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- ========================================== -->
+  <!-- HOOFDINHOUD                                -->
+  <!-- ========================================== -->
+  <main class="max-w-4xl mx-auto px-3 sm:px-4 py-4 w-full flex-1">
+
+    <!-- 1. DAG & MENU OVERZICHT -->
+    <section id="section-dayplanner" class="space-y-4">
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-[#EAE3DA] shadow-xs space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm sm:text-base font-semibold text-sand-900">📅 Dagplanning: Menu & To-Do's</h2>
+            <p class="text-xs text-sand-400">Zie voor elke dag van de week direct wat er gegeten wordt én welke taken gepland zijn.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="window.shareWeekOverviewWhatsApp()" class="px-3 py-1.5 bg-[#FAF7F4] hover:bg-sand-200 text-sand-800 border border-[#EAE3DA] text-xs font-medium rounded-xl shadow-xs transition-all flex items-center space-x-1 active:scale-95">
+              <span>💬</span><span>Deel planning</span>
+            </button>
+            <button onclick="window.addWeekMealsToGroceries(1)" class="px-3 py-1.5 bg-clay-600 hover:bg-clay-700 text-white text-xs font-medium rounded-xl shadow-xs transition-all flex items-center space-x-1 active:scale-95">
+              <span>🧺</span><span>Menu naar Picnic</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filterbalk dagen -->
+        <div class="flex items-center space-x-1.5 overflow-x-auto hide-scrollbar pt-1">
+          <button onclick="window.setDayPlannerFilter('all')" class="day-filter-btn px-3 py-1 text-xs rounded-full font-medium transition-all bg-sand-800 text-white shadow-xs" data-filter="all">Hele week</button>
+          <button onclick="window.setDayPlannerFilter('today')" class="day-filter-btn px-3 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-filter="today">⭐ Vandaag focus</button>
+          <button onclick="window.setDayPlannerFilter('Maandag')" class="day-filter-btn px-2.5 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-filter="Maandag">Ma</button>
+          <button onclick="window.setDayPlannerFilter('Dinsdag')" class="day-filter-btn px-2.5 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-filter="Dinsdag">Di</button>
+          <button onclick="window.setDayPlannerFilter('Woensdag')" class="day-filter-btn px-2.5 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-filter="Woensdag">Wo</button>
+          <button onclick="window.setDayPlannerFilter('Donderdag')" class="day-filter-btn px-2.5 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-filter="Donderdag">Do</button>
+          <button onclick="window.setDayPlannerFilter('Vrijdag')" class="day-filter-btn px-2.5 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-filter="Vrijdag">Vr</button>
+          <button onclick="window.setDayPlannerFilter('Zaterdag')" class="day-filter-btn px-2.5 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-filter="Zaterdag">Za</button>
+          <button onclick="window.setDayPlannerFilter('Zondag')" class="day-filter-btn px-2.5 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-filter="Zondag">Zo</button>
+        </div>
+      </div>
+
+      <!-- Kaarten per dag -->
+      <div id="day-cards-container" class="space-y-3 sm:space-y-4">
+        <!-- Dynamisch gevuld via JavaScript -->
+      </div>
+    </section>
+
+    <!-- 2. WEEKMENU'S (2 WEKEN VOORUIT PLANNEN) -->
+    <section id="section-weekmenu" class="hidden space-y-4">
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-[#EAE3DA] shadow-xs space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm sm:text-base font-semibold text-sand-900">🍲 Weekmenu's (2 Weken)</h2>
+            <p class="text-xs text-sand-400">Plan je maaltijden vooruit, inclusief notities en Picnic ingrediënten export.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="window.copyWeekMenu(1, 2)" class="px-2.5 py-1.5 bg-[#FAF7F4] hover:bg-sand-200 text-sand-800 border border-[#EAE3DA] text-xs font-medium rounded-xl shadow-xs transition-all flex items-center space-x-1 active:scale-95" title="Kopieer gerechten van Week 1 naar Week 2">
+              <span>📋</span><span>Kopieer W1 ➔ W2</span>
+            </button>
+            <button onclick="window.addWeekMealsToGroceries(activeWeekView)" class="px-3 py-1.5 bg-clay-600 hover:bg-clay-700 text-white text-xs font-medium rounded-xl shadow-xs transition-all flex items-center space-x-1 active:scale-95">
+              <span>🧺</span><span id="label-week-to-picnic">Week 1 naar Picnic</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Week 1 / Week 2 selector -->
+        <div class="flex items-center space-x-2 pt-1 border-t border-[#EAE3DA]/50">
+          <button onclick="window.setActiveWeekView(1)" id="btn-week-1" class="flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl bg-sand-800 text-white shadow-xs transition-all flex items-center justify-center space-x-1.5">
+            <span>🌱</span><span>Week 1 (Deze week)</span>
+          </button>
+          <button onclick="window.setActiveWeekView(2)" id="btn-week-2" class="flex-1 py-2 px-3 text-xs sm:text-sm font-medium rounded-xl bg-sand-100 text-sand-700 hover:bg-sand-200 transition-all flex items-center justify-center space-x-1.5">
+            <span>✨</span><span>Week 2 (Volgende week)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Lijst van dagen voor de actieve week -->
+      <div id="weekmenu-cards-container" class="space-y-3">
+        <!-- Dynamisch gevuld via JavaScript -->
+      </div>
+    </section>
+
+    <!-- 3. TAKEN OVERZICHT -->
+    <section id="section-tasks" class="hidden space-y-4">
+      <!-- Invoerformulier nieuwe taak -->
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-[#EAE3DA] shadow-xs space-y-3">
+        <form onsubmit="event.preventDefault(); window.addNewTask();" class="space-y-3">
+          <div class="flex items-center space-x-2">
+            <input id="input-task-title" type="text" placeholder="Wat wil je doen?" class="flex-1 bg-[#FAF8F5] text-sm px-4 py-2.5 border border-[#E5DDD4] rounded-2xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-clay-500 transition-all text-sand-900 placeholder-sand-400" />
+            <button type="button" onclick="window.startVoiceDictation('input-task-title')" class="p-2.5 text-sand-400 hover:text-clay-600 bg-[#FAF8F5] border border-[#E5DDD4] rounded-2xl transition-all" title="Dicteer met je stem (microfoon)">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+            </button>
+            <button type="button" id="btn-toggle-newtask-starred" onclick="window.toggleNewTaskStarred()" class="px-3 py-2.5 rounded-2xl border text-xs font-medium transition-all bg-[#FAF8F5] text-sand-600 border-[#E5DDD4] hover:bg-amber-50 flex items-center space-x-1" title="Zet direct als Vandaag met ster">
+              <span id="newtask-star-icon">☆</span>
+              <span class="hidden sm:inline">Vandaag</span>
+            </button>
+          </div>
+
+          <!-- Opties: Categorie, Dag, Prioriteit, Herhaling -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div>
+              <label class="block text-[11px] text-sand-400 mb-1">Categorie:</label>
+              <select id="select-task-category" class="w-full bg-[#FAF8F5] py-2 px-2.5 border border-[#E5DDD4] rounded-xl text-sand-700 focus:outline-none">
+                <option value="Privé">Privé</option>
+                <option value="Werk">Werk</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] text-sand-400 mb-1">Dag:</label>
+              <select id="select-task-due" class="w-full bg-[#FAF8F5] py-2 px-2.5 border border-[#E5DDD4] rounded-xl text-sand-700 focus:outline-none">
+                <option value="none">Geen vaste dag</option>
+                <option value="today">⭐ Vandaag (met ster)</option>
+                <option value="tomorrow">Morgen</option>
+                <option value="Maandag">Maandag</option>
+                <option value="Dinsdag">Dinsdag</option>
+                <option value="Woensdag">Woensdag</option>
+                <option value="Donderdag">Donderdag</option>
+                <option value="Vrijdag">Vrijdag</option>
+                <option value="Zaterdag">Zaterdag</option>
+                <option value="Zondag">Zondag</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] text-sand-400 mb-1">Prioriteit:</label>
+              <select id="select-task-priority" class="w-full bg-[#FAF8F5] py-2 px-2.5 border border-[#E5DDD4] rounded-xl text-sand-700 focus:outline-none">
+                <option value="Gemiddeld">Gemiddeld</option>
+                <option value="Hoog">Hoog</option>
+                <option value="Laag">Laag</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] text-sand-400 mb-1">🔁 Herhaling:</label>
+              <select id="select-task-recurrence" class="w-full bg-[#FAF8F5] py-2 px-2.5 border border-[#E5DDD4] rounded-xl text-sand-700 focus:outline-none">
+                <option value="none">Eenmalig</option>
+                <option value="daily">🔁 Dagelijks</option>
+                <option value="weekly">🔁 Wekelijks</option>
+                <option value="biweekly">🔁 Elke 2 wkn</option>
+                <option value="monthly">🔁 Maandelijks</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-2.5 bg-clay-600 hover:bg-clay-700 active:scale-[0.99] text-white text-xs sm:text-sm font-semibold rounded-2xl shadow-xs transition-all flex items-center justify-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span>Taak toevoegen</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Zoekbalk & Filters Taken -->
+      <div class="bg-white rounded-3xl p-3 sm:p-4 border border-[#EAE3DA] shadow-xs space-y-2">
+        <div class="relative">
+          <input id="input-search-tasks" oninput="window.renderTasks()" type="text" placeholder="🔍 Zoek in taken..." class="w-full bg-[#FAF8F5] text-xs px-3.5 py-2 border border-[#E5DDD4] rounded-xl focus:outline-none text-sand-800 placeholder-sand-400">
+        </div>
+        <div class="flex items-center space-x-1.5 overflow-x-auto hide-scrollbar pt-1">
+          <button onclick="window.setTaskFilter('all')" class="task-filter-btn px-3 py-1 text-xs rounded-full font-medium transition-all bg-sand-800 text-white shadow-xs" data-task-filter="all">Alles</button>
+          <button onclick="window.setTaskFilter('today')" class="task-filter-btn px-3 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-task-filter="today">
+            <span>⭐ Vandaag</span>
+            <span id="badge-today-count" class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800">0</span>
+          </button>
+          <button onclick="window.setTaskFilter('recurring')" class="task-filter-btn px-3 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-task-filter="recurring">🔁 Herhalend</button>
+          <button onclick="window.setTaskFilter('Privé')" class="task-filter-btn px-3 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-task-filter="Privé">Privé</button>
+          <button onclick="window.setTaskFilter('Werk')" class="task-filter-btn px-3 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200" data-task-filter="Werk">Werk</button>
+          <select id="select-filter-day" onchange="window.setTaskFilter('day:' + this.value)" class="text-xs bg-sand-100 border-none rounded-full px-2.5 py-1 text-sand-700 focus:outline-none">
+            <option value="all_days">📅 Dagen...</option>
+            <option value="Maandag">Maandag</option>
+            <option value="Dinsdag">Dinsdag</option>
+            <option value="Woensdag">Woensdag</option>
+            <option value="Donderdag">Donderdag</option>
+            <option value="Vrijdag">Vrijdag</option>
+            <option value="Zaterdag">Zaterdag</option>
+            <option value="Zondag">Zondag</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Takenlijst Container -->
+      <div id="tasks-list-container" class="space-y-2">
+        <!-- Dynamisch gevuld via JavaScript -->
+      </div>
+
+      <!-- Afgevinkte taken wissen knop -->
+      <div id="completed-tasks-actions" class="hidden pt-1 flex justify-end">
+        <button onclick="window.clearCompletedTasks()" class="text-xs font-medium text-sand-400 hover:text-rose-700 flex items-center space-x-1 py-1 px-2.5 rounded-lg hover:bg-rose-50/70 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          <span>Afgevinkte taken wissen</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 4. BOODSCHAPPENLIJST -->
+    <section id="section-groceries" class="hidden space-y-4">
+      <!-- Snelknoppen favorieten -->
+      <div class="bg-white rounded-3xl p-3 sm:p-4 border border-[#EAE3DA] shadow-xs space-y-2">
+        <span class="text-xs font-medium text-sand-400">Favorieten (1 tik):</span>
+        <div class="flex flex-wrap gap-1.5">
+          <button onclick="window.addNewGrocery('Havermelk', 'Zuivel & Kaas', '', 'weekly')" class="px-2.5 py-1 text-xs bg-[#FAF7F4] hover:bg-clay-100 hover:text-clay-800 rounded-full border border-[#EAE3DA] transition-all">🥛 Havermelk</button>
+          <button onclick="window.addNewGrocery('Zuurdesembrood', 'Bakkerij', '', 'weekly')" class="px-2.5 py-1 text-xs bg-[#FAF7F4] hover:bg-clay-100 hover:text-clay-800 rounded-full border border-[#EAE3DA] transition-all">🥖 Zuurdesembrood</button>
+          <button onclick="window.addNewGrocery('Eieren (10 st)', 'Zuivel & Kaas', '', 'weekly')" class="px-2.5 py-1 text-xs bg-[#FAF7F4] hover:bg-clay-100 hover:text-clay-800 rounded-full border border-[#EAE3DA] transition-all">🥚 Eieren</button>
+          <button onclick="window.addNewGrocery('Bananen', 'AGF', '', 'weekly')" class="px-2.5 py-1 text-xs bg-[#FAF7F4] hover:bg-clay-100 hover:text-clay-800 rounded-full border border-[#EAE3DA] transition-all">🍌 Bananen</button>
+          <button onclick="window.addNewGrocery('Jonge Kaas', 'Zuivel & Kaas', '', 'weekly')" class="px-2.5 py-1 text-xs bg-[#FAF7F4] hover:bg-clay-100 hover:text-clay-800 rounded-full border border-[#EAE3DA] transition-all">🧀 Jonge Kaas</button>
+          <button onclick="window.addNewGrocery('Koffiebonen', 'Voorraad & Droogwaren', '', 'weekly')" class="px-2.5 py-1 text-xs bg-[#FAF7F4] hover:bg-clay-100 hover:text-clay-800 rounded-full border border-[#EAE3DA] transition-all">☕ Koffiebonen</button>
+          <button onclick="window.addNewGrocery('Kipfilet', 'Vlees, Vis & Vega', '', 'weekly')" class="px-2.5 py-1 text-xs bg-[#FAF7F4] hover:bg-clay-100 hover:text-clay-800 rounded-full border border-[#EAE3DA] transition-all">🍗 Kipfilet</button>
+          <button onclick="window.addNewGrocery('Wc-papier', 'Huishoudelijk & Verzorging', '', 'biweekly')" class="px-2.5 py-1 text-xs bg-[#FAF7F4] hover:bg-clay-100 hover:text-clay-800 rounded-full border border-[#EAE3DA] transition-all">🧻 Wc-papier</button>
+          <button onclick="window.addNewGrocery('Cherrytomaten', 'AGF', '', 'weekly')" class="px-2.5 py-1 text-xs bg-[#FAF7F4] hover:bg-clay-100 hover:text-clay-800 rounded-full border border-[#EAE3DA] transition-all">🍅 Tomaten</button>
+          <button onclick="window.addNewGrocery('Avocado', 'AGF', '', 'weekly')" class="px-2.5 py-1 text-xs bg-[#FAF7F4] hover:bg-clay-100 hover:text-clay-800 rounded-full border border-[#EAE3DA] transition-all">🥑 Avocado</button>
+        </div>
+      </div>
+
+      <!-- Invoerformulier boodschap -->
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-[#EAE3DA] shadow-xs space-y-3">
+        <form onsubmit="event.preventDefault(); window.submitGroceryForm();" class="space-y-3">
+          <div class="flex items-center space-x-2">
+            <input id="input-grocery-name" type="text" placeholder="Productnaam (of typ meerdere met komma's)..." class="flex-1 bg-[#FAF8F5] text-sm px-4 py-2.5 border border-[#E5DDD4] rounded-2xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-clay-500 transition-all text-sand-900 placeholder-sand-400" />
+            <button type="button" onclick="window.startVoiceDictation('input-grocery-name')" class="p-2.5 text-sand-400 hover:text-clay-600 bg-[#FAF8F5] border border-[#E5DDD4] rounded-2xl transition-all" title="Spreek boodschappen in">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div>
+              <label class="block text-[11px] text-sand-400 mb-1">Afdeling (automatisch herkend):</label>
+              <select id="select-grocery-category" class="w-full bg-[#FAF8F5] py-2 px-2.5 border border-[#E5DDD4] rounded-xl text-sand-700 focus:outline-none">
+                <option value="AGF">🥦 AGF (Groente & Fruit)</option>
+                <option value="Zuivel & Kaas">🧀 Zuivel & Kaas</option>
+                <option value="Bakkerij">🥖 Bakkerij</option>
+                <option value="Voorraad & Droogwaren">🥫 Voorraad & Droogwaren</option>
+                <option value="Vlees, Vis & Vega">🥩 Vlees, Vis & Vega</option>
+                <option value="Huishoudelijk & Verzorging">🧼 Huishoudelijk & Verzorging</option>
+                <option value="Overig">📦 Overig</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] text-sand-400 mb-1">Aantal / Notitie:</label>
+              <input id="input-grocery-quantity" type="text" placeholder="bijv. 2 pakken of 500g" class="w-full bg-[#FAF8F5] py-2 px-2.5 border border-[#E5DDD4] rounded-xl text-sand-700 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-[11px] text-sand-400 mb-1">🔁 Picnic Routine:</label>
+              <select id="select-grocery-recurrence" class="w-full bg-[#FAF8F5] py-2 px-2.5 border border-[#E5DDD4] rounded-xl text-sand-700 focus:outline-none">
+                <option value="none">Eenmalig</option>
+                <option value="weekly" selected>🔁 Wekelijks (Picnic)</option>
+                <option value="biweekly">🔁 Elke 2 weken</option>
+                <option value="monthly">🔁 Maandelijks</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-2.5 bg-clay-600 hover:bg-clay-700 active:scale-[0.99] text-white text-xs sm:text-sm font-semibold rounded-2xl shadow-xs transition-all flex items-center justify-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span>Boodschap toevoegen</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Zoekbalk & Acties Boodschappen -->
+      <div class="bg-white rounded-3xl p-3 sm:p-4 border border-[#EAE3DA] shadow-xs space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <input id="input-search-groceries" oninput="window.renderGroceries()" type="text" placeholder="🔍 Zoek in boodschappen..." class="w-full sm:w-64 bg-[#FAF8F5] text-xs px-3.5 py-2 border border-[#E5DDD4] rounded-xl focus:outline-none text-sand-800 placeholder-sand-400">
+          
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button onclick="window.refillPicnicWeekly()" class="px-2.5 py-1.5 bg-sand-800 hover:bg-sand-900 text-white text-xs font-medium rounded-xl shadow-xs transition-all flex items-center space-x-1 active:scale-95" title="Zet alle wekelijkse Picnic-boodschappen weer actief">
+              <span>🧺</span><span>Picnic weeklijst klaarzetten</span>
+            </button>
+            <button onclick="window.shareGroceriesWhatsApp()" class="px-2.5 py-1.5 bg-[#FAF7F4] hover:bg-sand-200 text-sand-800 border border-[#EAE3DA] text-xs font-medium rounded-xl shadow-xs transition-all flex items-center space-x-1 active:scale-95">
+              <span>💬</span><span>WhatsApp</span>
+            </button>
+            <button onclick="window.clearCompletedGroceries()" class="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-sand-700 hover:text-rose-700 border border-[#EAE3DA] text-xs font-medium rounded-xl shadow-xs transition-all flex items-center space-x-1 active:scale-95">
+              <svg class="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              <span>Afgevinkte wissen</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="grocery-summary-bar" class="text-xs text-sand-400 pt-1 flex items-center justify-between border-t border-[#EAE3DA]/50">
+          <span id="label-grocery-progress">0 items verzameld</span>
+          <span class="text-[11px] text-clay-700 font-medium">Gesorteerd op Picnic gangpad</span>
+        </div>
+      </div>
+
+      <!-- Boodschappenlijst Container -->
+      <div id="groceries-list-container" class="space-y-3">
+        <!-- Dynamisch gevuld via JavaScript -->
+      </div>
+    </section>
+
+    <!-- 5. RECEPTEN SUGGESTIES -->
+    <section id="section-recipes" class="hidden space-y-4">
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-[#EAE3DA] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-sm sm:text-base font-semibold text-sand-900">🍽️ Recepten & Inspiratie</h2>
+          <p class="text-xs text-sand-400">Verse, gezonde gerechten afgestemd op je wekelijkse Picnic bestelling.</p>
+        </div>
+        <button onclick="window.openAddRecipeModal()" class="px-3 py-1.5 bg-clay-600 hover:bg-clay-700 text-white text-xs font-medium rounded-xl shadow-xs transition-all flex items-center space-x-1 self-start sm:self-auto active:scale-95">
+          <span>+</span><span>Eigen recept toevoegen</span>
+        </button>
+      </div>
+
+      <div id="recipes-grid-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Dynamisch gevuld via JavaScript -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL: KOPPELCODE & SUPABASE INSTELLINGEN  -->
+  <!-- ========================================== -->
+  <div id="modal-code" class="fixed inset-0 z-50 bg-sand-900/40 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-[#EAE3DA] max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-semibold text-sand-900">Synchronisatie & Supabase</h3>
+        <button onclick="window.closeCodeModal()" class="p-1 rounded-full text-sand-400 hover:text-sand-700 hover:bg-sand-100">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <!-- QR Code scanner -->
+      <div class="p-4 bg-[#FAF7F2] rounded-2xl border border-[#EAE3DA] text-center space-y-2">
+        <p class="text-xs font-semibold text-sand-800">Scan met de camera van je telefoon:</p>
+        <div class="inline-block p-2 bg-white rounded-2xl shadow-xs border border-sand-200">
+          <img id="qr-code-img" src="" alt="QR Code" class="w-32 h-32 mx-auto rounded-lg">
+        </div>
+        <p class="text-[11px] text-sand-400">Koppelcode: <span class="font-mono text-clay-700 font-semibold" id="qr-code-label">pleuntjedejong</span></p>
+      </div>
+
+      <!-- Koppelcode aanpassen -->
+      <div class="space-y-1.5 pt-1">
+        <label class="text-xs font-medium text-sand-700">Koppelcode aanpassen:</label>
+        <div class="flex items-center space-x-2">
+          <input id="input-sync-code" type="text" value="pleuntjedejong" class="flex-1 bg-[#FAF8F5] font-mono text-sm px-3.5 py-2 border border-[#E5DDD4] rounded-xl focus:bg-white focus:outline-none" />
+          <button onclick="window.saveCustomCode()" class="px-3.5 py-2 bg-sand-800 text-white rounded-xl text-xs font-medium hover:bg-sand-900 transition-colors">
+            Opslaan
+          </button>
+        </div>
+      </div>
+
+      <!-- Supabase verbinding velden -->
+      <div class="p-4 bg-[#F2F7F4] rounded-2xl border border-sage-200/80 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-1.5">
+            <span class="text-base">⚡</span>
+            <span class="text-xs font-semibold text-sage-700 uppercase tracking-wider">Supabase Verbinding</span>
+          </div>
+          <span id="supabase-status-pill" class="text-[10px] px-2 py-0.5 rounded-full bg-sand-100 text-sand-700 font-medium">Niet verbonden</span>
+        </div>
+
+        <div class="space-y-2">
+          <div>
+            <label class="text-[11px] font-medium text-sand-700">Supabase Project URL</label>
+            <input id="input-supabase-url" type="text" placeholder="https://jouwproject.supabase.co" class="w-full mt-0.5 bg-white font-mono text-xs px-3 py-2 border border-sand-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-sage-500" />
+          </div>
+          <div>
+            <label class="text-[11px] font-medium text-sand-700">Supabase Anon Public Key</label>
+            <input id="input-supabase-key" type="password" placeholder="eyJhbGciOi..." class="w-full mt-0.5 bg-white font-mono text-xs px-3 py-2 border border-sand-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-sage-500" />
+          </div>
+          <button onclick="window.connectSupabaseFromModal()" class="w-full py-2 bg-sage-500 hover:bg-sage-600 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center justify-center space-x-1.5 active:scale-95">
+            <span>⚡ Verbind met Supabase</span>
+          </button>
+        </div>
+
+        <!-- SQL Script helper -->
+        <div class="pt-2 border-t border-sage-200/60 text-left">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-semibold text-sand-700">Tabel in Supabase SQL Editor:</span>
+            <button onclick="window.copySupabaseSql()" class="text-[10px] text-clay-700 hover:underline font-medium">Kopieer SQL</button>
+          </div>
+          <pre class="mt-1 bg-white p-2 rounded-lg text-[9px] font-mono text-sand-800 border border-sand-200 overflow-x-auto select-all">create table if not exists app_lists (
+  id text primary key,
+  data jsonb not null,
+  updated_at bigint
+);
+alter publication supabase_realtime add table app_lists;</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: EIGEN RECEPT TOEVOEGEN              -->
+  <!-- ========================================== -->
+  <div id="modal-add-recipe" class="fixed inset-0 z-50 bg-sand-900/40 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-[#EAE3DA]">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-semibold text-sand-900">Eigen recept toevoegen</h3>
+        <button onclick="window.closeAddRecipeModal()" class="p-1 rounded-full text-sand-400 hover:text-sand-700 hover:bg-sand-100">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-sand-700 mb-1">Naam van het gerecht:</label>
+          <input id="input-recipe-title" type="text" placeholder="bijv. Citroen Risotto met Asperges" class="w-full bg-[#FAF8F5] text-sm px-3.5 py-2 border border-[#E5DDD4] rounded-xl focus:bg-white focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-sand-700 mb-1">Bereidingstijd:</label>
+          <input id="input-recipe-time" type="text" placeholder="bijv. 25 min" value="25 min" class="w-full bg-[#FAF8F5] text-sm px-3.5 py-2 border border-[#E5DDD4] rounded-xl focus:bg-white focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-sand-700 mb-1">Ingrediënten (gescheiden door komma's):</label>
+          <textarea id="input-recipe-ingredients" rows="3" placeholder="bijv. Risottorijst, Groene asperges, Citroen, Parmezaanse kaas, Groentebouillon" class="w-full bg-[#FAF8F5] text-sm px-3.5 py-2 border border-[#E5DDD4] rounded-xl focus:bg-white focus:outline-none text-sand-800"></textarea>
+        </div>
+        <button onclick="window.saveCustomRecipe()" class="w-full py-2.5 bg-clay-600 hover:bg-clay-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all">
+          Recept opslaan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: BEVESTIGING VOOR VERWIJDEREN        -->
+  <!-- ========================================== -->
+  <div id="modal-confirm" class="fixed inset-0 z-50 bg-sand-900/40 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 border border-[#EAE3DA] text-center">
+      <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-100">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+      </div>
+      <h3 id="modal-confirm-title" class="text-base font-semibold text-sand-900">Weet je het zeker?</h3>
+      <p id="modal-confirm-desc" class="text-xs text-sand-400 leading-relaxed"></p>
+      <div class="flex items-center space-x-2 pt-2">
+        <button onclick="window.closeConfirmModal()" class="flex-1 py-2.5 bg-sand-100 hover:bg-sand-200 text-sand-800 text-xs rounded-xl font-medium">Annuleren</button>
+        <button onclick="window.confirmModalAction()" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs rounded-xl font-medium">Verwijderen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST MELDING & UNDO -->
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-sand-900 text-white text-xs px-4 py-2.5 rounded-2xl shadow-xl flex items-center space-x-3 pointer-events-none opacity-0 transition-opacity duration-300">
+    <span id="toast-message">Melding</span>
+    <button id="toast-undo-btn" class="hidden text-amber-300 underline font-semibold text-[11px] pointer-events-auto">Herstel</button>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT LOGICA & SUPABASE SYNC          -->
+  <!-- ========================================== -->
+  <script>
+    // BASIS CONSTANTEN
+    const DEFAULT_CODE = 'pleuntjedejong';
+    let currentSyncCode = DEFAULT_CODE;
+    let activeTab = 'dayplanner';
+    let currentTaskFilter = 'all';
+    let currentDayFilter = 'all';
+    let activeWeekView = 1;
+    let confirmCallback = null;
+    let undoAction = null;
+    let isNewTaskStarred = false;
+
+    // SUPABASE CLIENT STATUS
+    let supabaseClient = null;
+    let isSupabaseActive = false;
+    let supabaseChannel = null;
+
+    const DAYS_OF_WEEK = [
+      { key: 'monday', label: 'Maandag' },
+      { key: 'tuesday', label: 'Dinsdag' },
+      { key: 'wednesday', label: 'Woensdag' },
+      { key: 'thursday', label: 'Donderdag' },
+      { key: 'friday', label: 'Vrijdag' },
+      { key: 'saturday', label: 'Zaterdag' },
+      { key: 'sunday', label: 'Zondag' }
+    ];
+
+    const CATEGORIES = [
+      { id: 'AGF', name: 'AGF (Groente & Fruit)', icon: '🥦' },
+      { id: 'Zuivel & Kaas', name: 'Zuivel & Kaas', icon: '🧀' },
+      { id: 'Bakkerij', name: 'Bakkerij', icon: '🥖' },
+      { id: 'Voorraad & Droogwaren', name: 'Voorraad & Droogwaren', icon: '🥫' },
+      { id: 'Vlees, Vis & Vega', name: 'Vlees, Vis & Vega', icon: '🥩' },
+      { id: 'Huishoudelijk & Verzorging', name: 'Huishoudelijk & Verzorging', icon: '🧼' },
+      { id: 'Overig', name: 'Overig', icon: '📦' }
+    ];
+
+    const DEFAULT_RECIPES = [
+      {
+        id: 'rec_1',
+        title: 'Citroen-Ricotta & Courgette Pasta',
+        time: '20 min',
+        tags: ['Vegetarisch', 'Snel', 'Favoriet'],
+        ingredients: ['Penne of Tagliatelle', 'Ricotta', 'Courgette', 'Citroen (bio)', 'Parmezaanse kaas', 'Knoflook', 'Pijnboompitten']
+      },
+      {
+        id: 'rec_2',
+        title: 'Avocado & Feta Zuurdesem Toast',
+        time: '15 min',
+        tags: ['Lunch / Diner', 'Vegetarisch'],
+        ingredients: ['Zuurdesembrood', 'Avocado', 'Feta', 'Eieren (10 st)', 'Chilivlokken', 'Cherrytomaten']
+      },
+      {
+        id: 'rec_3',
+        title: 'Thaise Kokoscurry met Zoete Aardappel',
+        time: '30 min',
+        tags: ['Vegan', 'Hartverwarmend'],
+        ingredients: ['Kokosmelk', 'Zoete aardappel', 'Kikkererwten (blik)', 'Verse spinazie', 'Rode currypasta', 'Basmatirijst']
+      },
+      {
+        id: 'rec_4',
+        title: 'Shakshuka met Spinazie & Geitenkaas',
+        time: '25 min',
+        tags: ['Vegetarisch', 'Eenpans'],
+        ingredients: ['Tomatenblokjes (blik)', 'Paprika', 'Eieren (10 st)', 'Geitenkaas', 'Verse spinazie', 'Komijnpoeder', 'Zuurdesembrood']
+      },
+      {
+        id: 'rec_5',
+        title: 'Zalmfilet uit de oven met Dille & Groenten',
+        time: '25 min',
+        tags: ['Vis', 'Gezond & Licht'],
+        ingredients: ['Zalmfilet', 'Krieltjes', 'Groene asperges of Boontjes', 'Citroen (bio)', 'Verse dille', 'Olijfolie']
+      },
+      {
+        id: 'rec_6',
+        title: 'Mexicaanse Burrito Bowl met Guacamole',
+        time: '20 min',
+        tags: ['Kleurrijk', 'Picnic Tip'],
+        ingredients: ['Zwarte bonen', 'Maïs (blik)', 'Rijst', 'Avocado', 'Limoen', 'Cheddar geraspt', 'Tortilla chips']
+      }
+    ];
+
+    // APPLICATIE STATE
+    let state = {
+      tasks: [
+        { id: 't_1', title: 'Picnic bestelling afronden vóór 22:00', category: 'Privé', priority: 'Hoog', due: 'today', starred: true, recurrence: 'weekly', done: false },
+        { id: 't_2', title: 'Weekoverleg voorbereiden', category: 'Werk', priority: 'Gemiddeld', due: 'Maandag', starred: false, recurrence: 'weekly', done: false },
+        { id: 't_3', title: 'Sportkleding wassen', category: 'Privé', priority: 'Laag', due: 'Woensdag', starred: false, recurrence: 'weekly', done: false }
+      ],
+      groceries: [
+        { id: 'g_1', name: 'Havermelk', category: 'Zuivel & Kaas', quantity: '2 pakken', recurrence: 'weekly', done: false },
+        { id: 'g_2', name: 'Zuurdesembrood', category: 'Bakkerij', quantity: '1 heel', recurrence: 'weekly', done: false },
+        { id: 'g_3', name: 'Bananen', category: 'AGF', quantity: '1 tros', recurrence: 'weekly', done: false },
+        { id: 'g_4', name: 'Courgette', category: 'AGF', quantity: '2 stuks', recurrence: 'none', done: false },
+        { id: 'g_5', name: 'Ricotta', category: 'Zuivel & Kaas', quantity: '1 bakje', recurrence: 'none', done: false }
+      ],
+      mealPlan: {
+        monday: { meal: 'Citroen-Ricotta & Courgette Pasta', recipeId: 'rec_1' },
+        tuesday: { meal: 'Thaise Kokoscurry met Zoete Aardappel', recipeId: 'rec_3' },
+        wednesday: { meal: 'Avocado & Feta Zuurdesem Toast', recipeId: 'rec_2' },
+        thursday: { meal: '', recipeId: '' },
+        friday: { meal: 'Zalmfilet uit de oven', recipeId: 'rec_5' },
+        saturday: { meal: '', recipeId: '' },
+        sunday: { meal: 'Mexicaanse Burrito Bowl', recipeId: 'rec_6' }
+      },
+      weekPlans: {
+        week1: {
+          monday: { meal: 'Citroen-Ricotta & Courgette Pasta', recipeId: 'rec_1', note: 'Picnic bezorging 17:30' },
+          tuesday: { meal: 'Thaise Kokoscurry', recipeId: 'rec_3', note: '' },
+          wednesday: { meal: 'Avocado Toast', recipeId: 'rec_2', note: 'Sportavond' },
+          thursday: { meal: 'Restjesdag / Makkelijk', recipeId: '', note: '' },
+          friday: { meal: 'Zalmfilet uit de oven', recipeId: 'rec_5', note: 'Weekend!' },
+          saturday: { meal: 'Uit eten of borrelplank', recipeId: '', note: '' },
+          sunday: { meal: 'Mexicaanse Burrito Bowl', recipeId: 'rec_6', note: 'Verse lunch' }
+        },
+        week2: {
+          monday: { meal: 'Shakshuka met Feta & Brood', recipeId: 'rec_4', note: '' },
+          tuesday: { meal: 'Citroen Pasta met Spinazie', recipeId: 'rec_1', note: '' },
+          wednesday: { meal: '', recipeId: '', note: '' },
+          thursday: { meal: '', recipeId: '', note: '' },
+          friday: { meal: 'Verse pizza maken', recipeId: '', note: 'Gezellig' },
+          saturday: { meal: '', recipeId: '', note: '' },
+          sunday: { meal: '', recipeId: '', note: '' }
+        }
+      },
+      customRecipes: []
+    };
+
+    // HULPFUNCTIES DATUM
+    function getCurrentDutchDay() {
+      const days = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+      return days[new Date().getDay()];
+    }
+
+    // AUTOMATISCHE AFDELINGSHERKENNING
+    function guessCategory(name) {
+      const lower = name.toLowerCase().trim();
+      if (/courgette|komkommer|tomaat|paprika|sla|spinazie|banaan|appel|citroen|limoen|avocado|ui|knoflook|aardappel|champignon|wortel|broccoli|fruit|bes|mandarijn|peer|prei|bloemkool/.test(lower)) return 'AGF';
+      if (/melk|kaas|yoghurt|boter|ricotta|feta|parmezaan|kwark|room|eieren|ei|mozzarella|crème fraîche|havermelk/.test(lower)) return 'Zuivel & Kaas';
+      if (/brood|croissant|bolletjes|baguette|pistolet|crackers|toast|ontbijtkoek|zuurdesem/.test(lower)) return 'Bakkerij';
+      if (/pasta|rijst|bloem|suiker|olie|olijfolie|saus|blik|bonen|kikkererwten|noten|koffie|thee|havermout|currypasta|pesto|honing|pindakaas|jam|ketchup/.test(lower)) return 'Voorraad & Droogwaren';
+      if (/kip|gehakt|vlees|biefstuk|zalm|vis|tonijn|garnalen|tofu|tempeh|vega|falafel|worst/.test(lower)) return 'Vlees, Vis & Vega';
+      if (/wc-papier|shampoo|zeep|tandpasta|afwasmiddel|wasmiddel|doekjes|vuilniszakken|keukenrol|douchegel/.test(lower)) return 'Huishoudelijk & Verzorging';
+      return 'Overig';
+    }
+
+    // ==========================================
+    // SYNCHRONISATIE: SUPABASE & REST ENGINE
+    // ==========================================
+    async function initSupabaseFromStorage() {
+      const savedUrl = localStorage.getItem('supabase_url');
+      const savedKey = localStorage.getItem('supabase_key');
+      if (savedUrl && savedKey) {
+        await connectToSupabase(savedUrl, savedKey, false);
+      } else {
+        updateSyncBadge('connected', 'Live verbonden (Cloud)');
+      }
+    }
+
+    async function connectToSupabase(url, key, showToasts = true) {
+      try {
+        if (!url || !key) {
+          if (showToasts) showToast('Vul zowel URL als Anon Key in');
+          return;
+        }
+        updateSyncBadge('syncing', 'Supabase verbinden...');
+        supabaseClient = window.supabase.createClient(url.trim(), key.trim());
+
+        // Test verbinding met fetch
+        const { data, error } = await supabaseClient
+          .from('app_lists')
+          .select('data')
+          .eq('id', currentSyncCode)
+          .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') {
+          throw error;
+        }
+
+        isSupabaseActive = true;
+        localStorage.setItem('supabase_url', url.trim());
+        localStorage.setItem('supabase_key', key.trim());
+
+        const statusPill = document.getElementById('supabase-status-pill');
+        if (statusPill) {
+          statusPill.textContent = '⚡ Verbonden!';
+          statusPill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-sage-100 text-sage-800 font-medium';
+        }
+
+        updateSyncBadge('supabase', '⚡ Supabase Live');
+        if (showToasts) showToast('Verbonden met Supabase!');
+
+        // Laad remote data als aanwezig
+        if (data && data.data) {
+          mergeRemoteState(data.data);
+          renderApp();
+        } else {
+          // Eerste keer opslaan
+          await persistState();
+        }
+
+        // Luister naar Realtime wijzigingen
+        subscribeToSupabaseChanges();
+
+      } catch (err) {
+        console.error('Supabase connect error:', err);
+        isSupabaseActive = false;
+        updateSyncBadge('error', 'Supabase fout');
+        if (showToasts) showToast('Kon niet verbinden met Supabase. Controleer URL/Key.');
+      }
+    }
+
+    function subscribeToSupabaseChanges() {
+      if (!supabaseClient) return;
+      if (supabaseChannel) supabaseClient.removeChannel(supabaseChannel);
+
+      supabaseChannel = supabaseClient
+        .channel('public:app_lists')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_lists', filter: `id=eq.${currentSyncCode}` }, payload => {
+          if (payload && payload.new && payload.new.data) {
+            mergeRemoteState(payload.new.data);
+            renderApp();
+            showToast('Lijst live bijgewerkt');
+          }
+        })
+        .subscribe();
+    }
+
+    async function persistState() {
+      // 1. Lokale cache bijwerken
+      try {
+        localStorage.setItem('cached_state_' + currentSyncCode, JSON.stringify(state));
+      } catch (e) {}
+
+      // 2. Supabase update indien actief
+      if (isSupabaseActive && supabaseClient) {
+        updateSyncBadge('syncing', 'Opslaan...');
+        try {
+          const { error } = await supabaseClient
+            .from('app_lists')
+            .upsert({
+              id: currentSyncCode,
+              data: state,
+              updated_at: Date.now()
+            });
+
+          if (!error) {
+            updateSyncBadge('supabase', '⚡ Supabase Live');
+            return;
+          }
+        } catch (e) {
+          console.warn('Supabase persist mislukt:', e);
+        }
+      }
+
+      // 3. REST Cloud fallback (directe verbinding zonder vereiste setup)
+      updateSyncBadge('syncing', 'Synchroniseren...');
+      try {
+        await fetch(`https://api.restful-api.dev/objects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'list_' + currentSyncCode, data: state })
+        });
+        updateSyncBadge('connected', 'Live verbonden');
+      } catch (e) {
+        updateSyncBadge('connected', 'Lokaal bewaard');
+      }
+    }
+
+    async function pollRemoteServer() {
+      updateSyncBadge('syncing', 'Vernieuwen...');
+      if (isSupabaseActive && supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient
+            .from('app_lists')
+            .select('data')
+            .eq('id', currentSyncCode)
+            .maybeSingle();
+
+          if (!error && data && data.data) {
+            mergeRemoteState(data.data);
+            renderApp();
+            updateSyncBadge('supabase', '⚡ Supabase Live');
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // Probeer lokale storage
+      try {
+        const cached = localStorage.getItem('cached_state_' + currentSyncCode);
+        if (cached) {
+          mergeRemoteState(JSON.parse(cached));
+          renderApp();
+        }
+      } catch (e) {}
+      updateSyncBadge('connected', isSupabaseActive ? '⚡ Supabase Live' : 'Live verbonden');
+    }
+
+    function mergeRemoteState(remote) {
+      if (!remote) return;
+      if (Array.isArray(remote.tasks)) state.tasks = remote.tasks;
+      if (Array.isArray(remote.groceries)) state.groceries = remote.groceries;
+      if (remote.mealPlan) state.mealPlan = remote.mealPlan;
+      if (remote.weekPlans) state.weekPlans = remote.weekPlans;
+      if (Array.isArray(remote.customRecipes)) state.customRecipes = remote.customRecipes;
+    }
+
+    function updateSyncBadge(status, text) {
+      const badge = document.getElementById('sync-status-badge');
+      const dot = document.getElementById('sync-indicator-dot');
+      const textElem = document.getElementById('sync-status-text');
+      if (!badge || !dot || !textElem) return;
+
+      textElem.textContent = text;
+      if (status === 'supabase') {
+        badge.className = 'flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 transition-all';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+      } else if (status === 'syncing') {
+        badge.className = 'flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 transition-all';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-spin';
+      } else if (status === 'error') {
+        badge.className = 'flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200 transition-all';
+        dot.className = 'w-2 h-2 rounded-full bg-rose-500';
+      } else {
+        badge.className = 'flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-sage-50 text-sage-700 border border-sage-200 transition-all';
+        dot.className = 'w-2 h-2 rounded-full bg-sage-500 animate-pulse';
+      }
+    }
+
+    // ==========================================
+    // WEERGAVE: RENDERING
+    // ==========================================
+    function renderApp() {
+      renderDayPlanner();
+      renderWeekMenu();
+      renderTasks();
+      renderGroceries();
+      renderRecipes();
+    }
+
+    // 1. DAG & MENU RENDEREN
+    function renderDayPlanner() {
+      const container = document.getElementById('day-cards-container');
+      if (!container) return;
+
+      const todayName = getCurrentDutchDay();
+      const allRecipes = [...DEFAULT_RECIPES, ...(state.customRecipes || [])];
+
+      let daysToRender = DAYS_OF_WEEK;
+      if (currentDayFilter === 'today') {
+        daysToRender = DAYS_OF_WEEK.filter(d => d.label === todayName);
+      } else if (currentDayFilter !== 'all') {
+        daysToRender = DAYS_OF_WEEK.filter(d => d.label === currentDayFilter);
+      }
+
+      container.innerHTML = daysToRender.map(day => {
+        const isToday = (day.label === todayName);
+        const dayKey = day.key;
+        const currentMeal = (state.mealPlan && state.mealPlan[dayKey] && state.mealPlan[dayKey].meal) || '';
+        const currentRecId = (state.mealPlan && state.mealPlan[dayKey] && state.mealPlan[dayKey].recipeId) || '';
+
+        // Taken voor deze specifieke dag
+        const dayTasks = state.tasks.filter(t => {
+          if (t.due === day.label) return true;
+          if (isToday && (t.due === 'today' || t.starred)) return true;
+          return false;
+        });
+
+        const activeRecipe = allRecipes.find(r => r.id === currentRecId);
+
+        return `
+          <div class="bg-white rounded-3xl p-4 sm:p-5 border ${isToday ? 'border-amber-300 ring-2 ring-amber-100 shadow-md bg-amber-50/20' : 'border-[#EAE3DA] shadow-xs'} transition-all space-y-4">
+            <!-- Header Dagkaart -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="text-base sm:text-lg font-bold text-sand-900">${day.label}</span>
+                ${isToday ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">⭐ Vandaag</span>' : ''}
+              </div>
+              <span class="text-xs text-sand-400 font-medium">${dayTasks.filter(t => !t.done).length} open to-do's</span>
+            </div>
+
+            <!-- Avondeten / Menu voor deze dag -->
+            <div class="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EBE3D9] space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-clay-700 flex items-center space-x-1.5">
+                  <span>🍲</span><span>Diner / Menu:</span>
+                </span>
+                ${activeRecipe ? `
+                  <button onclick="window.addRecipeIngredients('${activeRecipe.id}')" class="text-[11px] text-clay-700 hover:text-clay-800 font-semibold flex items-center space-x-1 underline">
+                    <span>🧺 Ingrediënten naar Picnic</span>
+                  </button>
+                ` : ''}
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input type="text" value="${escapeHtml(currentMeal)}" onblur="window.updateDayMealCustom('${dayKey}', this.value)" placeholder="Wat eten we op ${day.label}?" class="w-full text-xs font-medium px-3 py-2 bg-white border border-[#E5DDD4] rounded-xl focus:outline-none focus:ring-1 focus:ring-clay-500 text-sand-800 placeholder-sand-400" />
+                <select onchange="window.selectDayRecipe('${dayKey}', this.value)" class="w-full text-xs px-2.5 py-2 bg-white border border-[#E5DDD4] rounded-xl text-sand-700 focus:outline-none">
+                  <option value="">🍽️ Kies uit recepten...</option>
+                  ${allRecipes.map(r => `
+                    <option value="${r.id}" ${currentRecId === r.id ? 'selected' : ''}>${r.title} (${r.time})</option>
+                  `).join('')}
+                </select>
+              </div>
+            </div>
+
+            <!-- Takenlijst voor deze dag -->
+            <div class="space-y-2 pt-1">
+              <span class="text-xs font-semibold text-sand-700 flex items-center space-x-1">
+                <span>✅</span><span>To-do's voor ${day.label}:</span>
+              </span>
+
+              <div class="space-y-1.5">
+                ${dayTasks.length === 0 ? `
+                  <p class="text-xs text-sand-400 italic py-1">Geen taken gepland voor deze dag.</p>
+                ` : dayTasks.map(task => `
+                  <div class="flex items-center justify-between p-2.5 rounded-xl border ${task.done ? 'bg-sand-50/70 border-sand-200 opacity-60' : task.starred ? 'bg-amber-50/60 border-amber-200' : 'bg-white border-[#EAE3DA]'} transition-all">
+                    <div class="flex items-center space-x-2.5 flex-1 min-w-0 pr-2">
+                      <input type="checkbox" ${task.done ? 'checked' : ''} onchange="window.toggleTask('${task.id}')" class="w-4 h-4 rounded-md cursor-pointer" />
+                      <button onclick="window.toggleTaskStarred('${task.id}')" class="text-sm ${task.starred ? 'text-amber-500' : 'text-sand-300 hover:text-amber-400'} transition-colors" title="Focus voor vandaag">
+                        ${task.starred ? '★' : '☆'}
+                      </button>
+                      <span class="text-xs ${task.done ? 'line-through text-sand-400' : 'text-sand-800'} truncate">${escapeHtml(task.title)}</span>
+                    </div>
+
+                    <div class="flex items-center space-x-1.5 shrink-0">
+                      <span class="text-[10px] px-1.5 py-0.5 rounded-md font-medium ${task.category === 'Werk' ? 'bg-slate-100 text-slate-700' : 'bg-rose-50 text-rose-700'}">${task.category}</span>
+                      ${task.recurrence && task.recurrence !== 'none' ? '<span class="text-[10px] text-sage-600">🔁</span>' : ''}
+                      <button onclick="window.deleteTask('${task.id}')" class="p-1 text-sand-300 hover:text-rose-600 rounded-md transition-colors" title="Verwijderen">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+
+              <!-- Snelle toevoegbalk onder elke dag -->
+              <div class="pt-1 flex items-center space-x-1.5">
+                <input id="input-quick-task-${dayKey}" type="text" placeholder="+ Taak toevoegen voor ${day.label}..." onkeydown="if(event.key==='Enter') window.addQuickDayTask('${day.label}', this.value, '${dayKey}')" class="flex-1 bg-[#FAF8F5] text-xs px-3 py-1.5 border border-[#E5DDD4] rounded-xl focus:bg-white focus:outline-none text-sand-800 placeholder-sand-400" />
+                <button onclick="window.addQuickDayTask('${day.label}', document.getElementById('input-quick-task-${dayKey}').value, '${dayKey}')" class="px-3 py-1.5 bg-sand-800 hover:bg-sand-900 text-white text-xs font-semibold rounded-xl shadow-xs transition-all">
+                  Toevoegen
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 2. WEEKMENU (2 WEKEN) RENDEREN
+    function renderWeekMenu() {
+      const container = document.getElementById('weekmenu-cards-container');
+      const labelPicnic = document.getElementById('label-week-to-picnic');
+      const btnW1 = document.getElementById('btn-week-1');
+      const btnW2 = document.getElementById('btn-week-2');
+      if (!container) return;
+
+      if (labelPicnic) labelPicnic.textContent = `Week ${activeWeekView} naar Picnic`;
+
+      if (btnW1 && btnW2) {
+        if (activeWeekView === 1) {
+          btnW1.className = 'flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl bg-sand-800 text-white shadow-xs transition-all flex items-center justify-center space-x-1.5';
+          btnW2.className = 'flex-1 py-2 px-3 text-xs sm:text-sm font-medium rounded-xl bg-sand-100 text-sand-700 hover:bg-sand-200 transition-all flex items-center justify-center space-x-1.5';
+        } else {
+          btnW1.className = 'flex-1 py-2 px-3 text-xs sm:text-sm font-medium rounded-xl bg-sand-100 text-sand-700 hover:bg-sand-200 transition-all flex items-center justify-center space-x-1.5';
+          btnW2.className = 'flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl bg-sand-800 text-white shadow-xs transition-all flex items-center justify-center space-x-1.5';
+        }
+      }
+
+      const weekKey = activeWeekView === 1 ? 'week1' : 'week2';
+      const weekData = (state.weekPlans && state.weekPlans[weekKey]) || {};
+      const allRecipes = [...DEFAULT_RECIPES, ...(state.customRecipes || [])];
+
+      container.innerHTML = DAYS_OF_WEEK.map(day => {
+        const dayEntry = weekData[day.key] || { meal: '', recipeId: '', note: '' };
+        const activeRecipe = allRecipes.find(r => r.id === dayEntry.recipeId);
+
+        return `
+          <div class="bg-white rounded-2xl p-4 border border-[#EAE3DA] shadow-xs space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-bold text-sand-900">${day.label}</span>
+              ${activeRecipe ? `
+                <button onclick="window.addRecipeIngredients('${activeRecipe.id}')" class="text-xs text-clay-700 font-semibold hover:underline flex items-center space-x-1">
+                  <span>🧺 Ingrediënten naar Picnic</span>
+                </button>
+              ` : ''}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+              <div class="sm:col-span-6">
+                <input type="text" value="${escapeHtml(dayEntry.meal || '')}" onblur="window.updateWeekMealCustom('${weekKey}', '${day.key}', this.value)" placeholder="Gerecht voor ${day.label}..." class="w-full text-xs px-3 py-2 bg-[#FAF8F5] border border-[#E5DDD4] rounded-xl focus:bg-white focus:outline-none text-sand-800" />
+              </div>
+              <div class="sm:col-span-4">
+                <select onchange="window.selectWeekRecipe('${weekKey}', '${day.key}', this.value)" class="w-full text-xs px-2.5 py-2 bg-[#FAF8F5] border border-[#E5DDD4] rounded-xl text-sand-700 focus:outline-none">
+                  <option value="">🍽️ Kies uit recepten...</option>
+                  ${allRecipes.map(r => `
+                    <option value="${r.id}" ${dayEntry.recipeId === r.id ? 'selected' : ''}>${r.title}</option>
+                  `).join('')}
+                </select>
+              </div>
+              <div class="sm:col-span-2">
+                <input type="text" value="${escapeHtml(dayEntry.note || '')}" onblur="window.updateWeekNote('${weekKey}', '${day.key}', this.value)" placeholder="Notitie (sport, bezorging)..." class="w-full text-xs px-2.5 py-2 bg-[#FAF8F5] border border-[#E5DDD4] rounded-xl focus:bg-white focus:outline-none text-sand-600 text-[11px]" />
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 3. TAKEN RENDEREN
+    function renderTasks() {
+      const container = document.getElementById('tasks-list-container');
+      const searchVal = (document.getElementById('input-search-tasks')?.value || '').toLowerCase().trim();
+      const badgeToday = document.getElementById('badge-today-count');
+      const completedActions = document.getElementById('completed-tasks-actions');
+      if (!container) return;
+
+      const todayCount = state.tasks.filter(t => !t.done && (t.due === 'today' || t.starred)).length;
+      if (badgeToday) badgeToday.textContent = todayCount;
+
+      let filtered = state.tasks.filter(task => {
+        // Zoekterm filter
+        if (searchVal && !task.title.toLowerCase().includes(searchVal)) return false;
+
+        // Categorie / status filter
+        if (currentTaskFilter === 'all') return true;
+        if (currentTaskFilter === 'today') return task.due === 'today' || task.starred;
+        if (currentTaskFilter === 'recurring') return task.recurrence && task.recurrence !== 'none';
+        if (currentTaskFilter === 'Privé') return task.category === 'Privé';
+        if (currentTaskFilter === 'Werk') return task.category === 'Werk';
+        if (currentTaskFilter.startsWith('day:')) {
+          const targetDay = currentTaskFilter.replace('day:', '');
+          return task.due === targetDay;
+        }
+        return true;
+      });
+
+      // Toon/verberg knop voor afgeronde taken wissen
+      const hasCompleted = state.tasks.some(t => t.done);
+      if (completedActions) completedActions.classList.toggle('hidden', !hasCompleted);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 bg-white rounded-3xl border border-[#EAE3DA] p-6 space-y-2">
+            <span class="text-2xl">✨</span>
+            <p class="text-xs text-sand-400 font-medium">Geen taken gevonden voor dit overzicht.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(task => `
+        <div class="bg-white rounded-2xl p-3 sm:p-3.5 border ${task.done ? 'border-sand-200 opacity-60 bg-sand-50/60' : task.starred ? 'border-amber-300 bg-amber-50/30 shadow-xs' : 'border-[#EAE3DA] shadow-xs'} transition-all space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3 flex-1 min-w-0 pr-2">
+              <input type="checkbox" ${task.done ? 'checked' : ''} onchange="window.toggleTask('${task.id}')" class="w-4 h-4 rounded-md cursor-pointer shrink-0" />
+              <button onclick="window.toggleTaskStarred('${task.id}')" class="text-base ${task.starred ? 'text-amber-500' : 'text-sand-300 hover:text-amber-400'} transition-colors" title="Markeer als Vandaag focus">
+                ${task.starred ? '★' : '☆'}
+              </button>
+              <span class="text-xs sm:text-sm ${task.done ? 'line-through text-sand-400' : 'text-sand-900 font-medium'} truncate">${escapeHtml(task.title)}</span>
+            </div>
+
+            <div class="flex items-center space-x-1.5 shrink-0">
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-medium ${task.category === 'Werk' ? 'bg-slate-100 text-slate-700' : 'bg-rose-50 text-rose-700'}">${task.category}</span>
+              <button onclick="window.postponeTaskToTomorrow('${task.id}')" class="px-2 py-0.5 text-[10px] bg-sand-100 hover:bg-sand-200 text-sand-700 rounded-lg transition-colors font-medium" title="Schuif door naar morgen">
+                ➡️ Morgen
+              </button>
+              <button onclick="window.deleteTask('${task.id}')" class="p-1 text-sand-300 hover:text-rose-600 rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dag & Herhalingsselector op de taak zelf -->
+          <div class="flex items-center space-x-2 text-[11px] text-sand-400 pl-7">
+            <span class="text-sand-400">📅</span>
+            <select onchange="window.updateTaskDue('${task.id}', this.value)" class="bg-[#FAF8F5] border border-[#EAE3DA] rounded-lg px-2 py-0.5 text-sand-700 focus:outline-none">
+              <option value="none" ${task.due === 'none' ? 'selected' : ''}>Geen vaste dag</option>
+              <option value="today" ${task.due === 'today' ? 'selected' : ''}>⭐ Vandaag</option>
+              <option value="tomorrow" ${task.due === 'tomorrow' ? 'selected' : ''}>Morgen</option>
+              ${DAYS_OF_WEEK.map(d => `<option value="${d.label}" ${task.due === d.label ? 'selected' : ''}>${d.label}</option>`).join('')}
+            </select>
+
+            <span class="text-sand-400 ml-2">🔁</span>
+            <select onchange="window.updateTaskRecurrence('${task.id}', this.value)" class="bg-[#FAF8F5] border border-[#EAE3DA] rounded-lg px-2 py-0.5 text-sand-700 focus:outline-none">
+              <option value="none" ${task.recurrence === 'none' ? 'selected' : ''}>Eenmalig</option>
+              <option value="daily" ${task.recurrence === 'daily' ? 'selected' : ''}>Dagelijks</option>
+              <option value="weekly" ${task.recurrence === 'weekly' ? 'selected' : ''}>Wekelijks</option>
+              <option value="biweekly" ${task.recurrence === 'biweekly' ? 'selected' : ''}>Elke 2 wkn</option>
+              <option value="monthly" ${task.recurrence === 'monthly' ? 'selected' : ''}>Maandelijks</option>
+            </select>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 4. BOODSCHAPPEN RENDEREN
+    function renderGroceries() {
+      const container = document.getElementById('groceries-list-container');
+      const searchVal = (document.getElementById('input-search-groceries')?.value || '').toLowerCase().trim();
+      const progressLabel = document.getElementById('label-grocery-progress');
+      if (!container) return;
+
+      const totalItems = state.groceries.length;
+      const completedItems = state.groceries.filter(g => g.done).length;
+      if (progressLabel) {
+        progressLabel.textContent = `${completedItems} van de ${totalItems} artikelen verzameld`;
+      }
+
+      let filtered = state.groceries.filter(g => {
+        if (searchVal && !g.name.toLowerCase().includes(searchVal)) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 bg-white rounded-3xl border border-[#EAE3DA] p-6 space-y-2">
+            <span class="text-2xl">🧺</span>
+            <p class="text-xs text-sand-400 font-medium">Je boodschappenlijst is leeg of alles is verzameld!</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = CATEGORIES.map(cat => {
+        const catItems = filtered.filter(g => (g.category || 'Overig') === cat.id);
+        if (catItems.length === 0) return '';
+
+        return `
+          <div class="bg-white rounded-3xl p-4 sm:p-5 border border-[#EAE3DA] shadow-xs space-y-2.5">
+            <div class="flex items-center justify-between border-b border-[#FAF7F4] pb-2">
+              <h3 class="text-xs sm:text-sm font-bold text-sand-800 flex items-center space-x-1.5">
+                <span>${cat.icon}</span><span>${cat.name}</span>
+              </h3>
+              <span class="text-[11px] text-sand-400">${catItems.filter(i => !i.done).length} open</span>
+            </div>
+
+            <div class="space-y-1.5">
+              ${catItems.map(item => `
+                <div class="flex items-center justify-between p-2.5 rounded-xl border ${item.done ? 'bg-sand-50/70 border-sand-200 opacity-60' : 'bg-[#FAF8F5] border-[#EAE3DA]'} transition-all">
+                  <div class="flex items-center space-x-2.5 flex-1 min-w-0 pr-2">
+                    <input type="checkbox" ${item.done ? 'checked' : ''} onchange="window.toggleGrocery('${item.id}')" class="w-4 h-4 rounded-md cursor-pointer shrink-0" />
+                    <span class="text-xs sm:text-sm ${item.done ? 'line-through text-sand-400' : 'text-sand-900 font-medium'} truncate">${escapeHtml(item.name)}</span>
+                    ${item.quantity ? `<span class="text-[11px] text-sand-400">(${escapeHtml(item.quantity)})</span>` : ''}
+                    ${item.recurrence && item.recurrence !== 'none' ? `<span class="text-[10px] px-1.5 py-0.2 rounded-md bg-sage-50 text-sage-700 border border-sage-200">🔁 Picnic</span>` : ''}
+                  </div>
+
+                  <div class="flex items-center space-x-1 shrink-0">
+                    <button onclick="window.adjustGroceryQty('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center bg-white border border-[#EAE3DA] rounded-lg text-sand-700 hover:bg-sand-100 text-xs font-bold active:scale-95">−</button>
+                    <button onclick="window.adjustGroceryQty('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center bg-white border border-[#EAE3DA] rounded-lg text-sand-700 hover:bg-sand-100 text-xs font-bold active:scale-95">+</button>
+                    <button onclick="window.deleteGrocery('${item.id}')" class="p-1 text-sand-300 hover:text-rose-600 rounded-lg transition-colors ml-1">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 5. RECEPTEN RENDEREN
+    function renderRecipes() {
+      const container = document.getElementById('recipes-grid-container');
+      if (!container) return;
+
+      const all = [...DEFAULT_RECIPES, ...(state.customRecipes || [])];
+
+      container.innerHTML = all.map(recipe => {
+        // Controleer welke ingrediënten al op de lijst staan
+        const groceryNames = state.groceries.map(g => g.name.toLowerCase());
+
+        return `
+          <div class="bg-white rounded-3xl p-4 sm:p-5 border border-[#EAE3DA] shadow-xs flex flex-col justify-between space-y-4">
+            <div class="space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <h3 class="text-sm sm:text-base font-bold text-sand-900 leading-snug">${escapeHtml(recipe.title)}</h3>
+                <span class="text-[11px] font-semibold text-clay-700 bg-clay-50 px-2 py-0.5 rounded-full border border-clay-200 shrink-0">⏱️ ${recipe.time}</span>
+              </div>
+
+              <div class="flex flex-wrap gap-1">
+                ${(recipe.tags || []).map(t => `<span class="text-[10px] px-2 py-0.5 rounded-full bg-sand-100 text-sand-600 font-medium">${t}</span>`).join('')}
+              </div>
+
+              <!-- Ingrediëntenlijst -->
+              <div class="pt-2">
+                <span class="text-xs font-semibold text-sand-700 block mb-1.5">Ingrediënten voor Picnic:</span>
+                <ul class="text-xs text-sand-600 space-y-1">
+                  ${recipe.ingredients.map(ing => {
+                    const alreadyOnList = groceryNames.some(name => name.includes(ing.toLowerCase()) || ing.toLowerCase().includes(name));
+                    return `
+                      <li class="flex items-center space-x-1.5">
+                        <span class="text-xs">${alreadyOnList ? '✅' : '•'}</span>
+                        <span class="${alreadyOnList ? 'text-sage-700 font-medium' : 'text-sand-700'}">${escapeHtml(ing)}</span>
+                      </li>
+                    `;
+                  }).join('')}
+                </ul>
+              </div>
+            </div>
+
+            <button onclick="window.addRecipeIngredients('${recipe.id}')" class="w-full py-2 bg-clay-50 hover:bg-clay-100 text-clay-800 text-xs font-semibold rounded-xl border border-clay-200 shadow-xs transition-all flex items-center justify-center space-x-1.5 active:scale-95">
+              <span>🧺</span><span>Ingrediënten naar Picnic toevoegen</span>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ==========================================
+    // ACTIES: TAKEN BEHEER
+    // ==========================================
+    window.addNewTask = function() {
+      const input = document.getElementById('input-task-title');
+      const category = document.getElementById('select-task-category').value;
+      const due = document.getElementById('select-task-due').value;
+      const priority = document.getElementById('select-task-priority').value;
+      const recurrence = document.getElementById('select-task-recurrence').value;
+
+      if (!input || !input.value.trim()) {
+        showToast('Vul eerst een taakomschrijving in');
+        return;
+      }
+
+      const newTask = {
+        id: 't_' + Date.now(),
+        title: input.value.trim(),
+        category: category,
+        due: isNewTaskStarred ? 'today' : due,
+        priority: priority,
+        recurrence: recurrence,
+        starred: isNewTaskStarred || due === 'today',
+        done: false
+      };
+
+      state.tasks.unshift(newTask);
+      input.value = '';
+      isNewTaskStarred = false;
+      updateNewTaskStarButton();
+
+      renderTasks();
+      renderDayPlanner();
+      persistState();
+      showToast('Taak toegevoegd');
+    };
+
+    window.addQuickDayTask = function(dayLabel, text, inputKey) {
+      if (!text || !text.trim()) return;
+      const isToday = (dayLabel === getCurrentDutchDay());
+
+      const newTask = {
+        id: 't_' + Date.now(),
+        title: text.trim(),
+        category: 'Privé',
+        due: dayLabel,
+        priority: 'Gemiddeld',
+        recurrence: 'none',
+        starred: isToday,
+        done: false
+      };
+
+      state.tasks.unshift(newTask);
+      const inputElem = document.getElementById(`input-quick-task-${inputKey}`);
+      if (inputElem) inputElem.value = '';
+
+      renderTasks();
+      renderDayPlanner();
+      persistState();
+      showToast(`Taak gepland voor ${dayLabel}`);
+    };
+
+    window.toggleTask = function(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      task.done = !task.done;
+      triggerHaptic();
+      renderTasks();
+      renderDayPlanner();
+      persistState();
+    };
+
+    window.toggleTaskStarred = function(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      task.starred = !task.starred;
+      if (task.starred && task.due === 'none') {
+        task.due = 'today';
+      }
+      renderTasks();
+      renderDayPlanner();
+      persistState();
+      showToast(task.starred ? 'Toegevoegd aan Vandaag focus' : 'Ster verwijderd');
+    };
+
+    window.postponeTaskToTomorrow = function(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      task.due = 'tomorrow';
+      task.starred = false;
+      renderTasks();
+      renderDayPlanner();
+      persistState();
+      showToast('Taak doorgeschoven naar morgen');
+    };
+
+    window.updateTaskDue = function(id, dueVal) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      task.due = dueVal;
+      if (dueVal === 'today') task.starred = true;
+      renderTasks();
+      renderDayPlanner();
+      persistState();
+    };
+
+    window.updateTaskRecurrence = function(id, recVal) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      task.recurrence = recVal;
+      renderTasks();
+      renderDayPlanner();
+      persistState();
+    };
+
+    window.deleteTask = function(id) {
+      const index = state.tasks.findIndex(t => t.id === id);
+      if (index === -1) return;
+      const removed = state.tasks.splice(index, 1)[0];
+      renderTasks();
+      renderDayPlanner();
+      persistState();
+
+      showToastWithUndo('Taak verwijderd', () => {
+        state.tasks.splice(index, 0, removed);
+        renderTasks();
+        renderDayPlanner();
+        persistState();
+      });
+    };
+
+    window.clearCompletedTasks = function() {
+      const completed = state.tasks.filter(t => t.done);
+      if (completed.length === 0) return;
+
+      const recurringCount = completed.filter(t => t.recurrence && t.recurrence !== 'none').length;
+      const oneOffCount = completed.length - recurringCount;
+
+      openConfirmModal(
+        'Afgeronde taken opruimen?',
+        `${oneOffCount} eenmalige taken worden gewist. ${recurringCount > 0 ? recurringCount + ' terugkerende taken worden klaargezet voor de volgende ronde.' : ''}`,
+        () => {
+          state.tasks = state.tasks.filter(t => {
+            if (!t.done) return true;
+            if (t.recurrence && t.recurrence !== 'none') {
+              t.done = false;
+              return true;
+            }
+            return false;
+          });
+          renderTasks();
+          renderDayPlanner();
+          persistState();
+          showToast('Takenlijst opgeruimd');
+        }
+      );
+    };
+
+    window.toggleNewTaskStarred = function() {
+      isNewTaskStarred = !isNewTaskStarred;
+      updateNewTaskStarButton();
+    };
+
+    function updateNewTaskStarButton() {
+      const btn = document.getElementById('btn-toggle-newtask-starred');
+      const icon = document.getElementById('newtask-star-icon');
+      if (!btn || !icon) return;
+
+      if (isNewTaskStarred) {
+        btn.className = 'px-3 py-2.5 rounded-2xl border text-xs font-semibold transition-all bg-amber-100 text-amber-800 border-amber-300 flex items-center space-x-1';
+        icon.textContent = '★';
+      } else {
+        btn.className = 'px-3 py-2.5 rounded-2xl border text-xs font-medium transition-all bg-[#FAF8F5] text-sand-600 border-[#E5DDD4] hover:bg-amber-50 flex items-center space-x-1';
+        icon.textContent = '☆';
+      }
+    }
+
+    // ==========================================
+    // ACTIES: BOODSCHAPPEN BEHEER
+    // ==========================================
+    window.submitGroceryForm = function() {
+      const input = document.getElementById('input-grocery-name');
+      const catSelect = document.getElementById('select-grocery-category');
+      const qtyInput = document.getElementById('input-grocery-quantity');
+      const recSelect = document.getElementById('select-grocery-recurrence');
+
+      if (!input || !input.value.trim()) {
+        showToast('Vul een productnaam in');
+        return;
+      }
+
+      const raw = input.value.trim();
+      const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+
+      parts.forEach(part => {
+        const cat = parts.length > 1 ? guessCategory(part) : catSelect.value;
+        window.addNewGrocery(part, cat, qtyInput.value.trim(), recSelect.value, false);
+      });
+
+      input.value = '';
+      if (qtyInput) qtyInput.value = '';
+      renderGroceries();
+      persistState();
+      showToast(parts.length > 1 ? `${parts.length} boodschappen toegevoegd` : 'Boodschap toegevoegd');
+    };
+
+    window.addNewGrocery = function(name, category, quantity, recurrence, triggerRender = true) {
+      if (!name) return;
+      const cat = category || guessCategory(name);
+
+      // Controleer of artikel al bestaat
+      const existing = state.groceries.find(g => g.name.toLowerCase() === name.toLowerCase() && !g.done);
+      if (existing) {
+        existing.quantity = existing.quantity ? existing.quantity + ' +1' : '2x';
+      } else {
+        state.groceries.unshift({
+          id: 'g_' + Date.now() + Math.random().toString(36).substr(2, 4),
+          name: name,
+          category: cat,
+          quantity: quantity || '',
+          recurrence: recurrence || 'none',
+          done: false
+        });
+      }
+
+      if (triggerRender) {
+        renderGroceries();
+        persistState();
+        showToast(`${name} op de Picnic lijst gezet`);
+      }
+    };
+
+    window.toggleGrocery = function(id) {
+      const item = state.groceries.find(g => g.id === id);
+      if (!item) return;
+      item.done = !item.done;
+      triggerHaptic();
+      renderGroceries();
+      persistState();
+    };
+
+    window.adjustGroceryQty = function(id, delta) {
+      const item = state.groceries.find(g => g.id === id);
+      if (!item) return;
+      let current = parseInt(item.quantity) || 1;
+      let next = current + delta;
+      if (next <= 0) {
+        window.deleteGrocery(id);
+        return;
+      }
+      item.quantity = `${next}x`;
+      renderGroceries();
+      persistState();
+    };
+
+    window.deleteGrocery = function(id) {
+      const index = state.groceries.findIndex(g => g.id === id);
+      if (index === -1) return;
+      const removed = state.groceries.splice(index, 1)[0];
+      renderGroceries();
+      persistState();
+
+      showToastWithUndo(`${removed.name} verwijderd`, () => {
+        state.groceries.splice(index, 0, removed);
+        renderGroceries();
+        persistState();
+      });
+    };
+
+    window.clearCompletedGroceries = function() {
+      const completed = state.groceries.filter(g => g.done);
+      if (completed.length === 0) return;
+
+      openConfirmModal(
+        'Afgevinkte artikelen wissen?',
+        `Wil je ${completed.length} verzamelde artikelen van je lijst halen?`,
+        () => {
+          state.groceries = state.groceries.filter(g => !g.done);
+          renderGroceries();
+          persistState();
+          showToast(`${completed.length} artikelen gewist`);
+        }
+      );
+    };
+
+    window.refillPicnicWeekly = function() {
+      let count = 0;
+      state.groceries.forEach(item => {
+        if (item.recurrence && item.recurrence !== 'none') {
+          if (item.done) {
+            item.done = false;
+            count++;
+          }
+        }
+      });
+      renderGroceries();
+      persistState();
+      showToast(count > 0 ? `${count} vaste Picnic items opnieuw klaargezet!` : 'Alle vaste Picnic artikelen stonden al klaar.');
+    };
+
+    // ==========================================
+    // ACTIES: WEEKMENU & DAGMENU
+    // ==========================================
+    window.updateDayMealCustom = function(dayKey, mealName) {
+      if (!state.mealPlan) state.mealPlan = {};
+      if (!state.mealPlan[dayKey]) state.mealPlan[dayKey] = {};
+      state.mealPlan[dayKey].meal = mealName;
+      state.mealPlan[dayKey].recipeId = '';
+
+      // Synchroniseer met week1
+      if (!state.weekPlans) state.weekPlans = { week1: {}, week2: {} };
+      if (!state.weekPlans.week1) state.weekPlans.week1 = {};
+      state.weekPlans.week1[dayKey] = { ...state.mealPlan[dayKey] };
+
+      renderDayPlanner();
+      renderWeekMenu();
+      persistState();
+    };
+
+    window.selectDayRecipe = function(dayKey, recipeId) {
+      const all = [...DEFAULT_RECIPES, ...(state.customRecipes || [])];
+      const rec = all.find(r => r.id === recipeId);
+      if (!rec) return;
+
+      if (!state.mealPlan) state.mealPlan = {};
+      state.mealPlan[dayKey] = { meal: rec.title, recipeId: rec.id };
+
+      // Synchroniseer met week1
+      if (!state.weekPlans) state.weekPlans = { week1: {}, week2: {} };
+      if (!state.weekPlans.week1) state.weekPlans.week1 = {};
+      state.weekPlans.week1[dayKey] = { meal: rec.title, recipeId: rec.id, note: '' };
+
+      renderDayPlanner();
+      renderWeekMenu();
+      persistState();
+      showToast(`${rec.title} gepland voor ${dayKey}!`);
+    };
+
+    window.setActiveWeekView = function(weekNum) {
+      activeWeekView = weekNum;
+      renderWeekMenu();
+    };
+
+    window.updateWeekMealCustom = function(weekKey, dayKey, mealName) {
+      if (!state.weekPlans) state.weekPlans = { week1: {}, week2: {} };
+      if (!state.weekPlans[weekKey]) state.weekPlans[weekKey] = {};
+      if (!state.weekPlans[weekKey][dayKey]) state.weekPlans[weekKey][dayKey] = {};
+      state.weekPlans[weekKey][dayKey].meal = mealName;
+      state.weekPlans[weekKey][dayKey].recipeId = '';
+
+      if (weekKey === 'week1') {
+        if (!state.mealPlan) state.mealPlan = {};
+        state.mealPlan[dayKey] = { meal: mealName, recipeId: '' };
+        renderDayPlanner();
+      }
+
+      persistState();
+    };
+
+    window.selectWeekRecipe = function(weekKey, dayKey, recipeId) {
+      const all = [...DEFAULT_RECIPES, ...(state.customRecipes || [])];
+      const rec = all.find(r => r.id === recipeId);
+      if (!rec) return;
+
+      if (!state.weekPlans) state.weekPlans = { week1: {}, week2: {} };
+      if (!state.weekPlans[weekKey]) state.weekPlans[weekKey] = {};
+      if (!state.weekPlans[weekKey][dayKey]) state.weekPlans[weekKey][dayKey] = {};
+      state.weekPlans[weekKey][dayKey].meal = rec.title;
+      state.weekPlans[weekKey][dayKey].recipeId = rec.id;
+
+      if (weekKey === 'week1') {
+        if (!state.mealPlan) state.mealPlan = {};
+        state.mealPlan[dayKey] = { meal: rec.title, recipeId: rec.id };
+        renderDayPlanner();
+      }
+
+      renderWeekMenu();
+      persistState();
+      showToast(`${rec.title} gepland`);
+    };
+
+    window.updateWeekNote = function(weekKey, dayKey, noteText) {
+      if (!state.weekPlans) state.weekPlans = { week1: {}, week2: {} };
+      if (!state.weekPlans[weekKey]) state.weekPlans[weekKey] = {};
+      if (!state.weekPlans[weekKey][dayKey]) state.weekPlans[weekKey][dayKey] = {};
+      state.weekPlans[weekKey][dayKey].note = noteText;
+      persistState();
+    };
+
+    window.copyWeekMenu = function(fromW, toW) {
+      const fromKey = fromW === 1 ? 'week1' : 'week2';
+      const toKey = toW === 1 ? 'week1' : 'week2';
+      if (!state.weekPlans) state.weekPlans = { week1: {}, week2: {} };
+
+      state.weekPlans[toKey] = JSON.parse(JSON.stringify(state.weekPlans[fromKey] || {}));
+      renderWeekMenu();
+      persistState();
+      showToast(`Menu van Week ${fromW} gekopieerd naar Week ${toW}!`);
+    };
+
+    window.addWeekMealsToGroceries = function(weekNum) {
+      const weekKey = weekNum === 1 ? 'week1' : 'week2';
+      const weekData = (state.weekPlans && state.weekPlans[weekKey]) || {};
+      const all = [...DEFAULT_RECIPES, ...(state.customRecipes || [])];
+      let added = 0;
+
+      DAYS_OF_WEEK.forEach(day => {
+        const entry = weekData[day.key];
+        if (entry && entry.recipeId) {
+          const rec = all.find(r => r.id === entry.recipeId);
+          if (rec) {
+            rec.ingredients.forEach(ing => {
+              const already = state.groceries.some(g => g.name.toLowerCase() === ing.toLowerCase() && !g.done);
+              if (!already) {
+                window.addNewGrocery(ing, guessCategory(ing), '', 'none', false);
+                added++;
+              }
+            });
+          }
+        }
+      });
+
+      renderGroceries();
+      persistState();
+      showToast(added > 0 ? `${added} ingrediënten toegevoegd aan Picnic!` : 'Alle ingrediënten voor deze week stonden al op de lijst.');
+    };
+
+    // ==========================================
+    // ACTIES: RECEPTEN
+    // ==========================================
+    window.addRecipeIngredients = function(recipeId) {
+      const all = [...DEFAULT_RECIPES, ...(state.customRecipes || [])];
+      const rec = all.find(r => r.id === recipeId);
+      if (!rec) return;
+
+      let added = 0;
+      rec.ingredients.forEach(ing => {
+        const already = state.groceries.some(g => g.name.toLowerCase() === ing.toLowerCase() && !g.done);
+        if (!already) {
+          window.addNewGrocery(ing, guessCategory(ing), '', 'none', false);
+          added++;
+        }
+      });
+
+      renderGroceries();
+      persistState();
+      showToast(added > 0 ? `${added} ingrediënten van "${rec.title}" toegevoegd!` : 'Alle ingrediënten stonden al op je lijst.');
+    };
+
+    window.openAddRecipeModal = function() {
+      const m = document.getElementById('modal-add-recipe');
+      if (m) m.classList.remove('hidden');
+    };
+
+    window.closeAddRecipeModal = function() {
+      const m = document.getElementById('modal-add-recipe');
+      if (m) m.classList.add('hidden');
+    };
+
+    window.saveCustomRecipe = function() {
+      const title = document.getElementById('input-recipe-title')?.value.trim();
+      const time = document.getElementById('input-recipe-time')?.value.trim() || '25 min';
+      const ingRaw = document.getElementById('input-recipe-ingredients')?.value.trim();
+
+      if (!title || !ingRaw) {
+        showToast('Vul een titel en minstens één ingrediënt in');
+        return;
+      }
+
+      const ings = ingRaw.split(',').map(s => s.trim()).filter(Boolean);
+      const newRec = {
+        id: 'cust_' + Date.now(),
+        title: title,
+        time: time,
+        tags: ['Eigen recept'],
+        ingredients: ings
+      };
+
+      if (!state.customRecipes) state.customRecipes = [];
+      state.customRecipes.push(newRec);
+
+      document.getElementById('input-recipe-title').value = '';
+      document.getElementById('input-recipe-ingredients').value = '';
+      window.closeAddRecipeModal();
+
+      renderRecipes();
+      renderDayPlanner();
+      renderWeekMenu();
+      persistState();
+      showToast('Recept opgeslagen!');
+    };
+
+    // ==========================================
+    // NAVIGATIE & MODALS
+    // ==========================================
+    window.setMainTab = function(tab) {
+      activeTab = tab;
+      const sections = {
+        dayplanner: document.getElementById('section-dayplanner'),
+        weekmenu: document.getElementById('section-weekmenu'),
+        tasks: document.getElementById('section-tasks'),
+        groceries: document.getElementById('section-groceries'),
+        recipes: document.getElementById('section-recipes')
+      };
+
+      const buttons = {
+        dayplanner: document.getElementById('tab-btn-dayplanner'),
+        weekmenu: document.getElementById('tab-btn-weekmenu'),
+        tasks: document.getElementById('tab-btn-tasks'),
+        groceries: document.getElementById('tab-btn-groceries'),
+        recipes: document.getElementById('tab-btn-recipes')
+      };
+
+      const activeCls = 'flex-1 min-w-[85px] py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 border-b-2 border-clay-600 text-clay-700 transition-all';
+      const inactiveCls = 'flex-1 min-w-[85px] py-2.5 text-xs sm:text-sm font-medium flex items-center justify-center space-x-1 border-b-2 border-transparent text-sand-400 hover:text-sand-700 transition-all';
+
+      Object.keys(sections).forEach(key => {
+        if (sections[key]) sections[key].classList.toggle('hidden', key !== tab);
+        if (buttons[key]) buttons[key].className = key === tab ? activeCls : inactiveCls;
+      });
+
+      if (tab === 'dayplanner') renderDayPlanner();
+      if (tab === 'weekmenu') renderWeekMenu();
+      if (tab === 'tasks') renderTasks();
+      if (tab === 'groceries') renderGroceries();
+      if (tab === 'recipes') renderRecipes();
+    };
+
+    window.setDayPlannerFilter = function(filter) {
+      currentDayFilter = filter;
+      document.querySelectorAll('.day-filter-btn').forEach(btn => {
+        const isMatch = btn.getAttribute('data-filter') === filter;
+        btn.className = isMatch
+          ? 'day-filter-btn px-3 py-1 text-xs rounded-full font-medium transition-all bg-sand-800 text-white shadow-xs'
+          : 'day-filter-btn px-2.5 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200';
+      });
+      renderDayPlanner();
+    };
+
+    window.setTaskFilter = function(filter) {
+      currentTaskFilter = filter;
+      document.querySelectorAll('.task-filter-btn').forEach(btn => {
+        const isMatch = btn.getAttribute('data-task-filter') === filter;
+        btn.className = isMatch
+          ? 'task-filter-btn px-3 py-1 text-xs rounded-full font-medium transition-all bg-sand-800 text-white shadow-xs'
+          : 'task-filter-btn px-3 py-1 text-xs rounded-full font-medium transition-all bg-sand-100 text-sand-700 hover:bg-sand-200';
+      });
+      renderTasks();
+    };
+
+    window.openCodeModal = function() {
+      const m = document.getElementById('modal-code');
+      const input = document.getElementById('input-sync-code');
+      const label = document.getElementById('qr-code-label');
+      const qrImg = document.getElementById('qr-code-img');
+      const urlInput = document.getElementById('input-supabase-url');
+      const keyInput = document.getElementById('input-supabase-key');
+
+      if (input) input.value = currentSyncCode;
+      if (label) label.textContent = currentSyncCode;
+      if (qrImg) qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}`;
+
+      if (urlInput) urlInput.value = localStorage.getItem('supabase_url') || '';
+      if (keyInput) keyInput.value = localStorage.getItem('supabase_key') || '';
+
+      if (m) m.classList.remove('hidden');
+    };
+
+    window.closeCodeModal = function() {
+      const m = document.getElementById('modal-code');
+      if (m) m.classList.add('hidden');
+    };
+
+    window.saveCustomCode = function() {
+      const val = document.getElementById('input-sync-code')?.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      if (val) {
+        currentSyncCode = val;
+        document.getElementById('current-code-label').textContent = val;
+        window.closeCodeModal();
+        showToast(`Koppelcode ingesteld: ${val}`);
+        pollRemoteServer();
+      }
+    };
+
+    window.connectSupabaseFromModal = async function() {
+      const url = document.getElementById('input-supabase-url')?.value;
+      const key = document.getElementById('input-supabase-key')?.value;
+      await connectToSupabase(url, key, true);
+    };
+
+    window.copySupabaseSql = function() {
+      const sql = `create table if not exists app_lists (
+  id text primary key,
+  data jsonb not null,
+  updated_at bigint
+);
+alter publication supabase_realtime add table app_lists;`;
+      copyTextToClipboard(sql, 'SQL commando gekopieerd!');
+    };
+
+    window.manualSync = async function() {
+      const spinner = document.getElementById('sync-spinner-icon');
+      if (spinner) spinner.classList.add('rotate-180');
+      await pollRemoteServer();
+      setTimeout(() => {
+        if (spinner) spinner.classList.remove('rotate-180');
+      }, 500);
+      showToast('Gegevens vernieuwd');
+    };
+
+    function openConfirmModal(title, desc, actionFn) {
+      document.getElementById('modal-confirm-title').textContent = title;
+      document.getElementById('modal-confirm-desc').textContent = desc;
+      confirmCallback = actionFn;
+      document.getElementById('modal-confirm').classList.remove('hidden');
+    }
+
+    window.closeConfirmModal = function() {
+      document.getElementById('modal-confirm').classList.add('hidden');
+      confirmCallback = null;
+    };
+
+    window.confirmModalAction = function() {
+      if (confirmCallback) confirmCallback();
+      window.closeConfirmModal();
+    };
+
+    // ==========================================
+    // DELEN VIA WHATSAPP & KLEMBORD
+    // ==========================================
+    window.shareWeekOverviewWhatsApp = function() {
+      let text = `📅 *Weekplanning: Menu & Taken*\n\n`;
+      const today = getCurrentDutchDay();
+
+      DAYS_OF_WEEK.forEach(day => {
+        const isToday = (day.label === today);
+        const plan = state.mealPlan && state.mealPlan[day.key];
+        const meal = (plan && plan.meal) || 'Nog niet gekozen';
+        const tasks = state.tasks.filter(t => !t.done && (t.due === day.label || (isToday && (t.due === 'today' || t.starred))));
+
+        text += `🗓️ *${day.label}${isToday ? ' (Vandaag)' : ''}:*\n`;
+        text += `  🍲 Diner: ${meal}\n`;
+        if (tasks.length > 0) {
+          text += `  ✅ Taken:\n`;
+          tasks.forEach(t => { text += `    • ${t.title}\n`; });
+        }
+        text += `\n`;
+      });
+
+      copyTextToClipboard(text, 'Weekplanning gekopieerd voor WhatsApp!');
+    };
+
+    window.shareGroceriesWhatsApp = function() {
+      const active = state.groceries.filter(g => !g.done);
+      if (active.length === 0) {
+        showToast('Geen actieve boodschappen');
+        return;
+      }
+
+      let text = `🧺 *Picnic Boodschappenlijst*\n`;
+      CATEGORIES.forEach(cat => {
+        const items = active.filter(g => (g.category || 'Overig') === cat.id);
+        if (items.length > 0) {
+          text += `\n*${cat.icon} ${cat.name}:*\n`;
+          items.forEach(i => {
+            text += `• ${i.name}${i.quantity ? ' (' + i.quantity + ')' : ''}\n`;
+          });
+        }
+      });
+
+      copyTextToClipboard(text, 'Boodschappenlijst gekopieerd voor WhatsApp!');
+    };
+
+    function copyTextToClipboard(text, successMsg) {
+      const dummy = document.createElement('textarea');
+      dummy.value = text;
+      dummy.setAttribute('readonly', '');
+      dummy.style.position = 'fixed';
+      dummy.style.top = '-9999px';
+      dummy.style.left = '-9999px';
+      document.body.appendChild(dummy);
+      dummy.select();
+      try {
+        document.execCommand('copy');
+        showToast(successMsg);
+      } catch (e) {
+        showToast('Kopiëren niet ondersteund');
+      }
+      document.body.removeChild(dummy);
+    }
+
+    // ==========================================
+    // SPRAAKGESTUURD DICTEREN (🎙️)
+    // ==========================================
+    window.startVoiceDictation = function(inputId) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        showToast('Spraakinvoer niet ondersteund in deze browser');
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'nl-NL';
+      recognition.interimResults = false;
+
+      showToast('🎙️ Spreek nu je tekst in...');
+      recognition.start();
+
+      recognition.onresult = function(event) {
+        const spoken = event.results[0][0].transcript;
+        const target = document.getElementById(inputId);
+        if (target) {
+          target.value = target.value ? target.value + ', ' + spoken : spoken;
+          showToast(`Ingevoegd: "${spoken}"`);
+        }
+      };
+
+      recognition.onerror = function() {
+        showToast('Spraakherkenning gestopt');
+      };
+    };
+
+    // ==========================================
+    // TOASTS, HERSTEL (UNDO) & HAPTICS
+    // ==========================================
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const msgElem = document.getElementById('toast-message');
+      const undoBtn = document.getElementById('toast-undo-btn');
+      if (!toast || !msgElem) return;
+
+      msgElem.textContent = msg;
+      if (undoBtn) undoBtn.classList.add('hidden');
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+
+    function showToastWithUndo(msg, undoFn) {
+      const toast = document.getElementById('toast');
+      const msgElem = document.getElementById('toast-message');
+      const undoBtn = document.getElementById('toast-undo-btn');
+      if (!toast || !msgElem || !undoBtn) return;
+
+      msgElem.textContent = msg;
+      undoBtn.classList.remove('hidden');
+      undoAction = undoFn;
+
+      undoBtn.onclick = function() {
+        if (undoAction) undoAction();
+        toast.classList.add('opacity-0', 'pointer-events-none');
+        showToast('Hersteld!');
+      };
+
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 4000);
+    }
+
+    function triggerHaptic() {
+      if (navigator.vibrate) {
+        try { navigator.vibrate(40); } catch (e) {}
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // ==========================================
+    // INITIALISATIE
+    // ==========================================
+    function initApp() {
+      // Sluiten bij klikken op overlay
+      ['modal-code', 'modal-add-recipe', 'modal-confirm'].forEach(id => {
+        const elem = document.getElementById(id);
+        if (elem) {
+          elem.addEventListener('click', (e) => {
+            if (e.target === elem) {
+              if (id === 'modal-code') window.closeCodeModal();
+              if (id === 'modal-add-recipe') window.closeAddRecipeModal();
+              if (id === 'modal-confirm') window.closeConfirmModal();
+            }
+          });
+        }
+      });
+
+      renderApp();
+      initSupabaseFromStorage();
+
+      // Periodieke achtergrondsynchronisatie elke 12 seconden
+      setInterval(() => {
+        if (!document.hidden) pollRemoteServer();
+      }, 12000);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
+  </script>
+</body>
+</html>
